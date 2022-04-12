@@ -1,0 +1,69 @@
+version: '2.2'
+
+services:
+  zoo1:
+    image: zookeeper:3.4.9
+    hostname: zoo1
+    ports:
+      - "2181:2181"
+    # 주키퍼는 서버는 2개의 포트를 가진다.
+    # 2888은 서버 노드끼리 통신을 하기 위해서 사용한다.
+    # 3888은 리더 선출을 위해서 사용한다.
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_PORT: 2181
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+    volumes:
+      - ./zk-multiple-kafka-multiple/zoo1/data:/data
+      - ./zk-multiple-kafka-multiple/zoo1/datalog:/datalog
+
+  zoo2:
+    image: zookeeper:3.4.9
+    hostname: zoo2
+    ports:
+      - "2182:2182"
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_PORT: 2182
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+    volumes:
+      - ./zk-multiple-kafka-multiple/zoo2/data:/data
+      - ./zk-multiple-kafka-multiple/zoo2/datalog:/datalog
+
+  zoo3:
+    image: zookeeper:3.4.9
+    hostname: zoo3
+    ports:
+      - "2183:2183"
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_PORT: 2183
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+    volumes:
+      - ./zk-multiple-kafka-multiple/zoo3/data:/data
+      - ./zk-multiple-kafka-multiple/zoo3/datalog:/datalog
+
+  kafka1:
+    image: wurstmeister/kafka:latest
+    ports:
+      - target: 9094
+        published: 9094
+        protocol: tcp
+        mode: host
+    environment:
+      HOSTNAME_COMMAND: "docker info | grep ^Name: | cut -d' ' -f 2"
+      KAFKA_ZOOKEEPER_CONNECT: "zoo1:2181,zoo2:2182,zoo3:2183"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092,OUTSIDE://_{HOSTNAME_COMMAND}:9094
+      KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+
+      HOSTNAME_COMMAND: curl http://169.254.169.254/latest/meta-data/public-hostname
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092,OUTSIDE://_{HOSTNAME_COMMAND}:9094
+      KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
